@@ -313,3 +313,12 @@ CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action_type);
 CREATE INDEX idx_audit_logs_target ON audit_logs(target_entity, target_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- Users: Add column
+
+ALTER TABLE users
+ADD COLUMN verification_token VARCHAR(255) NULL,
+ADD COLUMN token_expiry_date DATETIME NULL;
+
+-- Thêm UNIQUE constraint để tìm kiếm token nhanh hơn
+ALTER TABLE users ADD CONSTRAINT uk_verification_token UNIQUE (verification_token);
