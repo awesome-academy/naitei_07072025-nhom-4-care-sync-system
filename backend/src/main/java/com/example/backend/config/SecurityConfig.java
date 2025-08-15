@@ -71,8 +71,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers(PATIENT_ENDPOINTS).hasRole("PATIENT")
                         .requestMatchers(DOCTOR_ENDPOINTS).hasRole("DOCTOR")
-                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN").anyRequest()
-                        .authenticated());
+                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
+
+                        .anyRequest().authenticated());
 
         return http.build();
     }
