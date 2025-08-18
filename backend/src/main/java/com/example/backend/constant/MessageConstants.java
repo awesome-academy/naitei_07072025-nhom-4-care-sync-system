@@ -58,4 +58,23 @@ public final class MessageConstants {
     public static final String PASSWORD_REQUIRED = "Mật khẩu là bắt buộc";
     public static final String PASSWORD_MIN_LENGTH = "Mật khẩu phải có ít nhất 8 ký tự";
     public static final String FULLNAME_REQUIRED = "Họ và tên là bắt buộc";
+
+    // Auth / Validation
+    public static final String EMAIL_NOT_BLANK = "Email không được để trống.";
+    public static final String PASSWORD_NOT_BLANK = "Mật khẩu không được để trống.";
+
+    // INVALID_CREDENTIALS :
+    public static final String INVALID_EMAIL_OR_PASSWORD = "Email hoặc mật khẩu không đúng.";
+
+    //
+    public static final String EMAIL_SUBJECT_EMAIL_VERIFICATION = "Vui lòng xác thực tài khoản của bạn.";
+    public static final String EMAIL_SENDING_FAILED = "Gửi email thất bại.";
+
+    // HTML/PlainText responses
+    public static final String VERIFY_EMAIL_SUCCESS_HTML = "<h1>Xác thực tài khoản thành công!</h1><p>Bạn có thể đóng cửa sổ này và đăng nhập vào ứng dụng.</p>";
+
+    // Token verify
+    public static final String TOKEN_INVALID = "Token không hợp lệ.";
+    public static final String TOKEN_EXPIRED_CODE = "TOKEN_EXPIRED";
+    public static final String TOKEN_EXPIRED_MESSAGE = "Token xác thực hết hạn.";
 }

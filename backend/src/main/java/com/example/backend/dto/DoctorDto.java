@@ -22,4 +22,3 @@ public class DoctorDto {
     private String bio;
     private BigDecimal consultationFee;
 }
-

@@ -11,17 +11,11 @@ import java.util.List;
 @Repository
 public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
-    @Query("SELECT d " +
-            "FROM Doctor d " +
-            "JOIN FETCH d.user u " +
-            "JOIN FETCH d.specialty s " +
-            "WHERE d.user.isActive = true")
+    @Query("SELECT d " + "FROM Doctor d " + "JOIN FETCH d.user u " + "JOIN FETCH d.specialty s "
+            + "WHERE d.user.isActive = true")
     List<Doctor> findAllActiveDoctors();
 
-    @Query("SELECT d " +
-            "FROM Doctor d " +
-            "JOIN FETCH d.user u " +
-            "JOIN FETCH d.specialty s " +
-            "WHERE d.specialty.id = :specialtyId")
+    @Query("SELECT d " + "FROM Doctor d " + "JOIN FETCH d.user u " + "JOIN FETCH d.specialty s "
+            + "WHERE d.specialty.id = :specialtyId")
     List<Doctor> findBySpecialty(@Param("specialtyId") Long specialtyId);
 }
