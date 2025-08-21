@@ -1,11 +1,11 @@
 package com.example.backend.dto;
 
-import java.math.BigDecimal;
-
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
+import lombok.Builder;
 
 public record DoctorDto(Long id, String fullName,
         @Email(message = "email must be valid") String email,
