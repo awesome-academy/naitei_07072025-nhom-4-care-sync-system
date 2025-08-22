@@ -5,8 +5,17 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot, Long> {
+
+    Optional<AppointmentSlot> findByIdAndDoctorId(Long id, Long doctorId);
+
+    List<AppointmentSlot> findByDoctorIdAndStartTimeBetween(Long doctorId, LocalDateTime from,
+            LocalDateTime to);
 
     // CAS: Đặt slot nếu còn AVAILABLE, link appointment_id
     @Modifying
@@ -32,4 +41,15 @@ public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot
             WHERE s.appointment.id = :appointmentId
             """)
     AppointmentSlot findByAppointmentId(@Param("appointmentId") Long appointmentId);
+
+    // CAS: Kiểm tra có slot nào của bác sĩ bị giao nhau với [start, end) không
+    @Query("""
+            SELECT case when count(s)>0 then true else false end
+            FROM AppointmentSlot s
+            WHERE s.doctor.id = :doctorId
+              and s.startTime < :end
+              and s.endTime   > :start
+            """)
+    boolean existsOverlap(@Param("doctorId") Long doctorId, @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }
