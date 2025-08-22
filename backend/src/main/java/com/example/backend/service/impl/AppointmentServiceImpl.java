@@ -87,9 +87,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         Long slotSpecialtyId = slot.getDoctor().getSpecialty() != null
                 ? slot.getDoctor().getSpecialty().getId().longValue()
                 : null;
-        boolean allMatch = services.stream()
-                .allMatch(svc -> svc.getSpecialty() != null && Objects
-                        .equals(svc.getSpecialty().getId().longValue(), slotSpecialtyId));
+        boolean allMatch = services.stream().allMatch(svc -> svc.getSpecialty() != null
+                && Objects.equals(svc.getSpecialty().getId().longValue(), slotSpecialtyId));
         if (!allMatch) {
             throw new BusinessException("error.service.specialty.mismatch");
         }
@@ -120,6 +119,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .map(com.example.backend.entity.AppointmentService::getPriceAtBooking)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // TODO: publish AppointmentCreatedEvent here (Patient Notifications task)
+
         return AppointmentMapper.buildFromServices(savedAppt, patient, slot, services, total,
                 request.notes());
     }
@@ -145,6 +146,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appt.setStatus(AppointmentStatus.CONFIRMED);
         var saved = appointmentRepository.save(appt);
+
+        // TODO: publish AppointmentConfirmedEvent here (Patient Notifications task)
 
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());
         return AppointmentMapper.buildFromAppointmentServices(saved, slot, apptServices);
@@ -176,13 +179,15 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointmentSlotRepository.freeSlotByAppointmentId(saved.getId());
 
+        // TODO: publish AppointmentRejectedEvent here (Patient Notifications task)
+
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());
         return AppointmentMapper.buildFromAppointmentServices(saved, slot, apptServices);
     }
 
     @Override
     public Page<AppointmentSummaryResponse> getMyAppointments(AppointmentFilterRequest filters,
-                                                              Pageable pageable) {
+            Pageable pageable) {
         String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(currentUserEmail).orElseThrow(() -> {
             String message = messageSource.getMessage("error.unauthorized", null, new Locale("vi"));
@@ -211,7 +216,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<AppointmentSummaryDto> listDoctorAppointments(AppointmentListRequest request) {
+    public PageResponse<AppointmentSummaryDto> listDoctorAppointments(
+            AppointmentListRequest request) {
         String email = SecurityUtils.getCurrentUserEmailOrThrow();
 
         User currentUser = userRepository.findByEmail(email)
@@ -236,7 +242,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                     patientUser != null ? patientUser.getFullName() : null);
         }).toList();
 
-        Page<AppointmentSummaryDto> dtoPage = new PageImpl<>(summaries, pageable, page.getTotalElements());
+        Page<AppointmentSummaryDto> dtoPage = new PageImpl<>(summaries, pageable,
+                page.getTotalElements());
         return PageResponse.of(dtoPage);
     }
 
@@ -245,7 +252,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     private Specification<Appointment> hasStatus(String status) {
-        return (root, query, cb) -> cb.equal(root.get("status"), AppointmentStatus.valueOf(status.trim().toUpperCase()));
+        return (root, query, cb) -> cb.equal(root.get("status"),
+                AppointmentStatus.valueOf(status.trim().toUpperCase()));
     }
 
     private Specification<Appointment> isAfter(LocalDate startDate) {
