@@ -50,6 +50,7 @@ public final class DoctorSpecifications {
         return (root, cq, cb) -> cb.greaterThanOrEqualTo(root.get("consultationFee"), min);
     }
 
+
     public static Specification<Doctor> feeMax(BigDecimal max) {
         return (root, cq,
                 cb) -> max == null ? null : cb.lessThanOrEqualTo(root.get("consultationFee"), max);

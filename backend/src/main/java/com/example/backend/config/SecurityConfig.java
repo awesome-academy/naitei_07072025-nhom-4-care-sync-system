@@ -43,13 +43,13 @@ public class SecurityConfig {
     private static final String[] PUBLIC_GET_ENDPOINTS = {ApiConstants.SPECIALTIES_ENDPOINT + "/**",
             ApiConstants.DOCTORS_ENDPOINT + "/**"};
 
+    // Adopted from develop branch: consolidated endpoints for patients
     private static final String[] PATIENT_ENDPOINTS = {
             ApiConstants.PATIENT_APPOINTMENTS_ENDPOINT + "/**", "/notifications/**",
-            "/feedback/**"};
+            "/feedback/**", ApiConstants.PAYMENTS_ENDPOINT + "/**"};
 
-    private static final String[] PAYMENT_ENDPOINTS = {ApiConstants.PAYMENTS_ENDPOINT + "/**"};
-
-    private static final String[] DOCTOR_ENDPOINTS = {ApiConstants.DOCTORS_ENDPOINT + "/me/**",
+    private static final String[] DOCTOR_ENDPOINTS = {
+            ApiConstants.DOCTORS_ENDPOINT + "/me/**",
             ApiConstants.DOCTOR_APPOINTMENTS_ENDPOINT + "/**",
             ApiConstants.DOCTOR_TIME_OFF_ENDPOINT + "/**", ApiConstants.CALENDAR_ENDPOINT + "/**"};
 
@@ -91,9 +91,8 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(authz -> authz.requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
+                        // Combined logic: PATIENT role covers appointments, feedback, and payments
                         .requestMatchers(PATIENT_ENDPOINTS).hasRole("PATIENT")
-                        .requestMatchers(PAYMENT_ENDPOINTS).authenticated()
-                        .requestMatchers(ApiConstants.DOCTORS_ENDPOINT + "/me/**").authenticated()
                         .requestMatchers(DOCTOR_ENDPOINTS).hasRole("DOCTOR")
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

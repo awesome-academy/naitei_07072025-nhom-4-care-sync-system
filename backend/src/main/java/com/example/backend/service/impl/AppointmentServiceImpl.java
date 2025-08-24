@@ -2,24 +2,18 @@ package com.example.backend.service.impl;
 
 import com.example.backend.constant.enums.AppointmentStatus;
 import com.example.backend.dto.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
+import com.example.backend.entity.*;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import com.example.backend.dto.AppointmentCreateRequest;
 import com.example.backend.dto.AppointmentCreateResponse;
 import com.example.backend.dto.AppointmentCancelResponse;
-import com.example.backend.entity.Appointment;
-import com.example.backend.entity.AppointmentSlot;
-import com.example.backend.entity.Patient;
-import com.example.backend.entity.User;
-import com.example.backend.entity.Doctor;
 import com.example.backend.entity.ids.AppointmentServiceId;
 import com.example.backend.event.AppointmentConfirmedEvent;
 import com.example.backend.event.AppointmentCreatedEvent;
@@ -37,12 +31,9 @@ import com.example.backend.repository.UserRepository;
 import com.example.backend.service.AppointmentService;
 import com.example.backend.service.CalendarSyncService;
 import com.example.backend.util.SecurityUtils;
-
 import java.time.LocalDate;
 import java.util.Locale;
-
 import com.example.backend.dto.AppointmentRejectRequest;
-
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -50,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -62,7 +54,17 @@ import com.example.backend.dto.AppointmentSummaryDto;
 import com.example.backend.dto.PageResponse;
 
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.example.backend.service.InvoiceService;
 
@@ -200,7 +202,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             BigDecimal totalAmount = apptServices.stream()
                     .map(com.example.backend.entity.AppointmentService::getPriceAtBooking)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
+
             invoiceService.createInvoiceForAppointment(saved.getId(), totalAmount);
             log.info("Auto-created invoice for confirmed appointment: {}", saved.getId());
         } catch (Exception e) {
@@ -335,6 +337,56 @@ public class AppointmentServiceImpl implements AppointmentService {
         Page<AppointmentSummaryDto> dtoPage = new PageImpl<>(summaries, pageable,
                 page.getTotalElements());
         return PageResponse.of(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AppointmentDetailResponse getAppointmentDetails(Long id) {
+        log.info("Fetching details for appointment id: {}", id);
+
+        Appointment appointment = appointmentRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("error.appointment.not.found", id));
+
+        String currentUserEmail = SecurityUtils.getCurrentUserEmailOrThrow();
+        if (!appointment.getPatient().getUser().getEmail().equals(currentUserEmail)) {
+            throw new AccessDeniedException("error.access.denied");
+        }
+
+        AppointmentSlot slot = appointment.getAppointmentSlot();
+        Doctor doctor = slot.getDoctor();
+        User doctorUser = doctor.getUser();
+        Specialty specialty = doctor.getSpecialty();
+        Patient patient = appointment.getPatient();
+        User patientUser = patient.getUser();
+        List<com.example.backend.entity.AppointmentService> apptServices = appointmentServiceRepository
+                .findByAppointmentId(id);
+
+        BigDecimal totalPrice = apptServices.stream()
+                .map(com.example.backend.entity.AppointmentService::getPriceAtBooking)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<String> availableActions = new ArrayList<>();
+        if (appointment.getStatus() == AppointmentStatus.PENDING
+                || appointment.getStatus() == AppointmentStatus.CONFIRMED) {
+            availableActions.add("CANCEL");
+        }
+
+        return AppointmentDetailResponse.builder().id(appointment.getId())
+                .status(appointment.getStatus().name()).appointmentTime(slot.getStartTime())
+                .endTime(slot.getEndTime()).notes(appointment.getNotes()).totalPrice(totalPrice)
+                .doctor(AppointmentDetailResponse.DoctorInfo.builder().id(doctor.getId())
+                        .fullName(doctorUser.getFullName()).specialtyName(specialty.getName())
+                        .build())
+                .patient(AppointmentDetailResponse.PatientInfo.builder().id(patient.getId())
+                        .fullName(patientUser.getFullName())
+                        .phoneNumber(patientUser.getPhoneNumber()).build())
+                .services(apptServices.stream()
+                        .map(as -> AppointmentDetailResponse.ServiceItem.builder()
+                                .id(as.getService().getId()).name(as.getService().getName())
+                                .price(as.getPriceAtBooking()).build())
+                        .collect(Collectors.toList()))
+                .availableActions(availableActions).history(new ArrayList<>())
+                .build();
     }
 
     private Specification<Appointment> isPatient(User user) {

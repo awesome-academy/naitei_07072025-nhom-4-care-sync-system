@@ -25,8 +25,8 @@ public interface AppointmentMapper {
     AppointmentSummaryResponse toAppointmentSummaryResponse(Appointment appointment);
 
     static AppointmentCreateResponse buildFromServices(Appointment savedAppt, Patient patient,
-            AppointmentSlot slot, List<com.example.backend.entity.Service> services,
-            BigDecimal total, String notes) {
+                                                       AppointmentSlot slot, List<com.example.backend.entity.Service> services,
+                                                       BigDecimal total, String notes) {
         Doctor doctor = slot.getDoctor();
         Specialty specialty = doctor.getSpecialty();
         User user = doctor.getUser();
@@ -44,8 +44,8 @@ public interface AppointmentMapper {
     }
 
     static AppointmentCreateResponse buildFromAppointmentServices(Appointment appt,
-            AppointmentSlot slot,
-            List<com.example.backend.entity.AppointmentService> apptServices) {
+                                                                  AppointmentSlot slot,
+                                                                  List<com.example.backend.entity.AppointmentService> apptServices) {
         Doctor doctor = slot.getDoctor();
         Specialty specialty = doctor.getSpecialty();
         User user = doctor.getUser();
