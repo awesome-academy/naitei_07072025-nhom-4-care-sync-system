@@ -18,6 +18,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.example.backend.security.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -37,8 +39,10 @@ public class SecurityConfig {
 
     private static final String[] DOCTOR_ENDPOINTS = {ApiConstants.DOCTORS_ENDPOINT + "/me/**",
             ApiConstants.DOCTOR_APPOINTMENTS_ENDPOINT + "/**",
-            ApiConstants.DOCTOR_TIME_OFF_ENDPOINT + "/**", "/api/v1/doctors/*/schedules/**"};
+            ApiConstants.DOCTOR_TIME_OFF_ENDPOINT + "/**", "/api/v1/doctors/*/schedules/**",
+            ApiConstants.DOCTOR_SCHEDULE_TEMPLATES_ENDPOINT + "/**"};
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private static final String[] ADMIN_ENDPOINTS = {ApiConstants.ADMIN_ENDPOINT + "/**"};
 
     @Bean
@@ -69,14 +73,14 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(authz -> authz.requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
-                        .requestMatchers(PATIENT_ENDPOINTS).permitAll()
-                        .requestMatchers(PATIENT_ENDPOINTS).hasRole("PATIENT")
-                        .requestMatchers(DOCTOR_ENDPOINTS).hasRole("DOCTOR")
-                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN").anyRequest()
-                        .authenticated());
+        http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(authz -> authz
+                .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
+                .requestMatchers(PATIENT_ENDPOINTS).permitAll().requestMatchers(PATIENT_ENDPOINTS)
+                .hasRole("PATIENT").requestMatchers(DOCTOR_ENDPOINTS).hasRole("DOCTOR")
+                .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN").anyRequest().authenticated());
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
