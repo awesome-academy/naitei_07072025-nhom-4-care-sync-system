@@ -20,4 +20,5 @@ public final class ApiConstants {
     public static final String DOCTOR_SCHEDULE_TEMPLATES_ENDPOINT = API_V1 + "/me/schedules";
 
     public static final String CALENDAR_ENDPOINT = API_V1 + "/calendar";
+    public static final String PATIENT_REVIEWS_ENDPOINT = API_V1 + "/patient/reviews";
 }
