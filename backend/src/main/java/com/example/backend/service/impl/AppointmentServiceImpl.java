@@ -2,22 +2,7 @@ package com.example.backend.service.impl;
 
 import com.example.backend.constant.enums.AppointmentStatus;
 import com.example.backend.dto.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-
-import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.example.backend.dto.AppointmentCreateRequest;
-import com.example.backend.dto.AppointmentCreateResponse;
-import com.example.backend.dto.AppointmentCancelResponse;
-import com.example.backend.entity.Appointment;
-import com.example.backend.entity.AppointmentSlot;
-import com.example.backend.entity.Patient;
-import com.example.backend.entity.User;
-import com.example.backend.entity.Doctor;
+import com.example.backend.entity.*;
 import com.example.backend.entity.ids.AppointmentServiceId;
 import com.example.backend.event.AppointmentConfirmedEvent;
 import com.example.backend.event.AppointmentCreatedEvent;
@@ -30,26 +15,31 @@ import com.example.backend.mapper.AppointmentMapper;
 import com.example.backend.repository.*;
 import com.example.backend.service.AppointmentService;
 import com.example.backend.util.SecurityUtils;
-import java.time.LocalDate;
-import java.util.Locale;
-import com.example.backend.dto.AppointmentRejectRequest;
-import java.util.stream.Collectors;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
-import com.example.backend.dto.AppointmentListRequest;
-import com.example.backend.dto.AppointmentSummaryDto;
-import com.example.backend.dto.PageResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -127,7 +117,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .map(com.example.backend.entity.AppointmentService::getPriceAtBooking)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Publish events for notifications
         publishAppointmentCreatedEvents(savedAppt, patient, slot, services, total, request.notes());
 
         return AppointmentMapper.buildFromServices(savedAppt, patient, slot, services, total,
@@ -156,7 +145,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         appt.setStatus(AppointmentStatus.CONFIRMED);
         var saved = appointmentRepository.save(appt);
 
-        // Notification out of current scope: do not publish confirmed event
+        publishAppointmentConfirmedEvent(saved, slot);
 
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());
         return AppointmentMapper.buildFromAppointmentServices(saved, slot, apptServices);
@@ -188,7 +177,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointmentSlotRepository.freeSlotByAppointmentId(saved.getId());
 
-        // Notification out of current scope: do not publish rejected event
+        publishAppointmentRejectedEvent(saved, slot, request.reason());
 
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());
         return AppointmentMapper.buildFromAppointmentServices(saved, slot, apptServices);
@@ -256,6 +245,154 @@ public class AppointmentServiceImpl implements AppointmentService {
         return PageResponse.of(dtoPage);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public AppointmentDetailResponse getAppointmentDetails(Long id) {
+        log.info("Fetching details for appointment id: {}", id);
+
+        Appointment appointment = appointmentRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("error.appointment.not.found", id));
+
+        return buildAppointmentDetailResponse(appointment);
+    }
+
+    @Override
+    @Transactional
+    public AppointmentCancelResponse cancelByPatient(Long appointmentId, Boolean confirmPolicy) {
+        if (confirmPolicy == null || !confirmPolicy) {
+            throw new BusinessException("error.policy.not.confirmed");
+        }
+
+        String email = SecurityUtils.getCurrentUserEmailOrThrow();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedException("error.user.not.found"));
+        if (currentUser.getPatient() == null || currentUser.getPatient().getId() == null) {
+            throw new AccessDeniedException("error.access.denied");
+        }
+        Long currentUserId = currentUser.getPatient().getId();
+
+        var appt = appointmentRepository.findByIdWithSlotForUpdate(appointmentId).orElseThrow(
+                () -> new ResourceNotFoundException("error.appointment.not.found", appointmentId));
+
+        if (appt.getPatient() == null || appt.getPatient().getId() == null
+                || !Objects.equals(appt.getPatient().getId(), currentUserId)) {
+            throw new AccessDeniedException("error.access.denied");
+        }
+
+        String oldStatus = appt.getStatus() != null ? appt.getStatus().name() : null;
+
+        if (appt.getStatus() == null) {
+            throw new BusinessException("error.appointment.status.invalid");
+        }
+        switch (appt.getStatus()) {
+            case PENDING :
+                break;
+            case CONFIRMED :
+                throw new BusinessException("error.appointment.cancel.doctor.confirmed");
+            default :
+                throw new BusinessException("error.appointment.status.invalid",
+                        appt.getStatus().name());
+        }
+
+        var slot = appt.getAppointmentSlot();
+        if (slot == null) {
+            throw new BusinessException("error.appointment.slot.missing");
+        }
+        if (slot.getStartTime() != null && !LocalDateTime.now().isBefore(slot.getStartTime())) {
+            throw new BusinessException("error.appointment.cannot.cancel.started");
+        }
+
+        appt.setStatus(AppointmentStatus.CANCELLED);
+        appointmentRepository.save(appt);
+        boolean slotReleased = appointmentSlotRepository.freeSlotByAppointmentId(appointmentId) > 0;
+
+        String policyMsg = messageSource.getMessage("policy.appointment.cancel", null,
+                LocaleContextHolder.getLocale());
+
+        return new AppointmentCancelResponse(appt.getId(), oldStatus, appt.getStatus().name(),
+                slotReleased, policyMsg, false);
+    }
+
+    @Override
+    @Transactional
+    public AppointmentDetailResponse updateStatusByDoctor(Long appointmentId,
+            UpdateAppointmentStatusRequest request) {
+        log.info("Doctor updating status for appointment {}: to {}", appointmentId,
+                request.newStatus());
+
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElseThrow(
+                () -> new ResourceNotFoundException("error.appointment.not.found", appointmentId));
+
+        String currentUserEmail = SecurityUtils.getCurrentUserEmailOrThrow();
+        Long doctorUserIdOfAppointment = appointment.getAppointmentSlot().getDoctor().getUser()
+                .getId();
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new UnauthorizedException("error.user.not.found"));
+
+        if (!currentUser.getId().equals(doctorUserIdOfAppointment)) {
+            throw new AccessDeniedException("error.access.denied");
+        }
+
+        validateStatusTransition(appointment.getStatus(), request.newStatus());
+
+        appointment.setStatus(request.newStatus());
+        appointmentRepository.save(appointment);
+
+        log.info("Successfully updated status for appointment {}", appointmentId);
+
+        return buildAppointmentDetailResponse(appointment);
+    }
+
+    private void validateStatusTransition(AppointmentStatus current, AppointmentStatus next) {
+        if (current != AppointmentStatus.CONFIRMED) {
+            throw new BusinessException("error.appointment.invalid.state.for.update");
+        }
+
+        Set<AppointmentStatus> allowedNextStates = Set.of(AppointmentStatus.COMPLETED,
+                AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW);
+
+        if (!allowedNextStates.contains(next)) {
+            throw new BusinessException("error.appointment.invalid.next.state");
+        }
+    }
+
+    private AppointmentDetailResponse buildAppointmentDetailResponse(Appointment appointment) {
+        AppointmentSlot slot = appointment.getAppointmentSlot();
+        Doctor doctor = slot.getDoctor();
+        User doctorUser = doctor.getUser();
+        Specialty specialty = doctor.getSpecialty();
+        Patient patient = appointment.getPatient();
+        User patientUser = patient.getUser();
+        List<com.example.backend.entity.AppointmentService> apptServices = appointmentServiceRepository
+                .findByAppointmentId(appointment.getId());
+
+        BigDecimal totalPrice = apptServices.stream()
+                .map(com.example.backend.entity.AppointmentService::getPriceAtBooking)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<String> availableActions = new ArrayList<>();
+        if (appointment.getStatus() == AppointmentStatus.PENDING
+                || appointment.getStatus() == AppointmentStatus.CONFIRMED) {
+            availableActions.add("CANCEL");
+        }
+
+        return AppointmentDetailResponse.builder().id(appointment.getId())
+                .status(appointment.getStatus().name()).appointmentTime(slot.getStartTime())
+                .endTime(slot.getEndTime()).notes(appointment.getNotes()).totalPrice(totalPrice)
+                .doctor(AppointmentDetailResponse.DoctorInfo.builder().id(doctor.getId())
+                        .fullName(doctorUser.getFullName()).specialtyName(specialty.getName())
+                        .build())
+                .patient(AppointmentDetailResponse.PatientInfo.builder().id(patient.getId())
+                        .fullName(patientUser.getFullName())
+                        .phoneNumber(patientUser.getPhoneNumber()).build())
+                .services(apptServices.stream()
+                        .map(as -> AppointmentDetailResponse.ServiceItem.builder()
+                                .id(as.getService().getId()).name(as.getService().getName())
+                                .price(as.getPriceAtBooking()).build())
+                        .toList())
+                .availableActions(availableActions).history(List.of()).build();
+    }
+
     private Specification<Appointment> isPatient(User user) {
         return (root, query, cb) -> cb.equal(root.get("patient").get("user"), user);
     }
@@ -280,69 +417,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 doctorId);
     }
 
-    @Override
-    @Transactional
-    public AppointmentCancelResponse cancelByPatient(Long appointmentId, Boolean confirmPolicy) {
-        if (confirmPolicy == null || !confirmPolicy) {
-            throw new BusinessException("error.policy.not.confirmed");
-        }
-
-        // Lấy user hiện tại từ SecurityContext
-        String email = SecurityUtils.getCurrentUserEmailOrThrow();
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new com.example.backend.exception.UnauthorizedException(
-                        "error.user.not.found"));
-        if (currentUser.getPatient() == null || currentUser.getPatient().getId() == null) {
-            throw new AccessDeniedException("error.access.denied"); // 403
-        }
-        Long currentUserId = currentUser.getPatient().getId();
-
-        var appt = appointmentRepository.findByIdWithSlotForUpdate(appointmentId).orElseThrow(
-                () -> new ResourceNotFoundException("error.appointment.not.found", appointmentId)); // 404
-
-        // Owner check
-        if (appt.getPatient() == null || appt.getPatient().getId() == null
-                || !Objects.equals(appt.getPatient().getId(), currentUserId)) {
-            throw new AccessDeniedException("error.access.denied");
-        }
-
-        String oldStatus = appt.getStatus() != null ? appt.getStatus().name() : null;
-
-        // Status check
-        if (appt.getStatus() == null) {
-            throw new BusinessException("error.appointment.status.invalid");
-        }
-        switch (appt.getStatus()) {
-            case PENDING -> {
-            }
-            case CONFIRMED ->
-                throw new BusinessException("error.appointment.cancel.doctor.confirmed"); // 422
-            default -> throw new BusinessException("error.appointment.status.invalid",
-                    appt.getStatus().name()); // 422
-        }
-
-        // Time check
-        var slot = appt.getAppointmentSlot();
-        if (slot == null) {
-            throw new BusinessException("error.appointment.slot.missing");
-        }
-        if (slot.getStartTime() != null && !LocalDateTime.now().isBefore(slot.getStartTime())) {
-            throw new BusinessException("error.appointment.cannot.cancel.started");
-        }
-
-        // Update & free slot
-        appt.setStatus(AppointmentStatus.CANCELLED);
-        appointmentRepository.save(appt);
-        boolean slotReleased = appointmentSlotRepository.freeSlotByAppointmentId(appointmentId) > 0;
-
-        String policyMsg = messageSource.getMessage("policy.appointment.cancel", null,
-                LocaleContextHolder.getLocale());
-
-        return new AppointmentCancelResponse(appt.getId(), oldStatus, appt.getStatus().name(),
-                slotReleased, policyMsg, false);
-    }
-
-    // Event publishing methods
     private void publishAppointmentCreatedEvents(Appointment appointment, Patient patient,
             AppointmentSlot slot, List<com.example.backend.entity.Service> services,
             BigDecimal totalPrice, String notes) {
@@ -351,14 +425,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = slot.getDoctor();
         User doctorUser = doctor.getUser();
 
-        // Publish event for patient
         AppointmentCreatedEvent patientEvent = new AppointmentCreatedEvent(appointment.getId(),
                 patient.getId(), patientUser.getEmail(), patientUser.getFullName(),
                 slot.getStartTime(), slot.getEndTime(), doctor.getId(), doctorUser.getFullName(),
                 doctor.getSpecialty() != null ? doctor.getSpecialty().getName() : null, totalPrice);
         eventPublisher.publishEvent(patientEvent);
 
-        // Publish event for doctor
         List<String> serviceNames = services.stream()
                 .map(com.example.backend.entity.Service::getName).collect(Collectors.toList());
 
