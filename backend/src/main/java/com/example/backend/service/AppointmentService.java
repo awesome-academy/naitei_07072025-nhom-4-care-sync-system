@@ -1,16 +1,8 @@
 package com.example.backend.service;
 
-import com.example.backend.dto.AppointmentCreateRequest;
-import com.example.backend.dto.AppointmentCreateResponse;
-import com.example.backend.dto.AppointmentFilterRequest;
-import com.example.backend.dto.AppointmentListRequest;
-import com.example.backend.dto.AppointmentRejectRequest;
-import com.example.backend.dto.AppointmentSummaryDto;
-import com.example.backend.dto.AppointmentSummaryResponse;
-import com.example.backend.dto.PageResponse;
+import com.example.backend.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import com.example.backend.dto.AppointmentCancelResponse;
 
 public interface AppointmentService {
     AppointmentCreateResponse create(AppointmentCreateRequest request);
@@ -20,4 +12,7 @@ public interface AppointmentService {
             Pageable pageable);
     PageResponse<AppointmentSummaryDto> listDoctorAppointments(AppointmentListRequest request);
     AppointmentCancelResponse cancelByPatient(Long appointmentId, Boolean confirmPolicy);
+    AppointmentDetailResponse updateStatusByDoctor(Long appointmentId,
+            UpdateAppointmentStatusRequest request);
+    AppointmentDetailResponse getAppointmentDetails(Long id);
 }
