@@ -1,12 +1,7 @@
 package com.example.backend.controller.patient;
 
 import com.example.backend.constant.ApiConstants;
-
-import com.example.backend.dto.ApiResponse;
-import com.example.backend.dto.AppointmentCreateRequest;
-import com.example.backend.dto.AppointmentCreateResponse;
-import com.example.backend.dto.AppointmentCancelRequest;
-import com.example.backend.dto.AppointmentCancelResponse;
+import com.example.backend.dto.*; // Import all DTOs needed
 import com.example.backend.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,9 +14,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.example.backend.dto.PageResponse;
-import com.example.backend.dto.AppointmentSummaryResponse;
-import com.example.backend.dto.AppointmentFilterRequest;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -44,6 +36,7 @@ public class PatientAppointmentController {
         Page<AppointmentSummaryResponse> appointmentsPage = appointmentService
                 .getMyAppointments(filters, pageable);
 
+        // The fix is on this line: Changed Page-Response to PageResponse
         PageResponse<AppointmentSummaryResponse> pageResponse = PageResponse.of(appointmentsPage);
 
         String successMessage = messageSource.getMessage("success.appointments.retrieved", null,
@@ -66,7 +59,7 @@ public class PatientAppointmentController {
     @PutMapping("/{id}/cancel")
     @Operation(summary = "Cancel an appointment (owner only; release slot to AVAILABLE)")
     public ApiResponse<AppointmentCancelResponse> cancel(@PathVariable("id") Long appointmentId,
-            @Valid @RequestBody AppointmentCancelRequest request) {
+                                                         @Valid @RequestBody AppointmentCancelRequest request) {
 
         log.info("Cancel appointment id={}, confirmPolicy={}, reason={}", appointmentId,
                 request.confirmPolicy(), request.reason());
@@ -75,5 +68,15 @@ public class PatientAppointmentController {
         String message = messageSource.getMessage("success.appointment.cancelled", null,
                 LocaleContextHolder.getLocale());
         return ApiResponse.success(resp, message);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get details of a specific appointment")
+    public ResponseEntity<ApiResponse<AppointmentDetailResponse>> getAppointmentDetails(
+            @PathVariable Long id) {
+        AppointmentDetailResponse details = appointmentService.getAppointmentDetails(id);
+        String message = messageSource.getMessage("success.operation", null,
+                LocaleContextHolder.getLocale());
+        return ResponseEntity.ok(ApiResponse.success(details, message));
     }
 }

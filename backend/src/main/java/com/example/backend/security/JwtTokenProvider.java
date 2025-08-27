@@ -29,7 +29,7 @@ public class JwtTokenProvider {
         signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String email) { // ĐÃ SỬA
+    public String generateToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -37,7 +37,7 @@ public class JwtTokenProvider {
                 .signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }
 
-    public String generateRefreshToken(String email) { // ĐÃ SỬA
+    public String generateRefreshToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + refreshExpirationMs);
 
@@ -45,7 +45,7 @@ public class JwtTokenProvider {
                 .signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }
 
-    public String getEmailFromToken(String token) { // ĐÃ SỬA
+    public String getEmailFromToken(String token) {
         return Jwts.parserBuilder().setSigningKey(signingKey).build().parseClaimsJws(token)
                 .getBody().getSubject();
     }
