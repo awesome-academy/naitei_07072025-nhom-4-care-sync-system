@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -53,5 +54,19 @@ public class DoctorAppointmentController {
         String message = messageSource.getMessage("success.appointment.rejected", null,
                 LocaleContextHolder.getLocale());
         return ApiResponse.success(resp, message);
+    }
+
+    @PatchMapping("/{appointmentId}/status")
+    @Operation(summary = "Update appointment status by Doctor")
+    public ResponseEntity<ApiResponse<AppointmentDetailResponse>> updateAppointmentStatus(
+            @PathVariable Long appointmentId,
+            @Valid @RequestBody UpdateAppointmentStatusRequest request) {
+
+        AppointmentDetailResponse responseDto = appointmentService
+                .updateStatusByDoctor(appointmentId, request);
+        ApiResponse<AppointmentDetailResponse> apiResponse = ApiResponse.success(responseDto,
+                "Cập nhật trạng thái thành công.");
+
+        return ResponseEntity.ok(apiResponse);
     }
 }
