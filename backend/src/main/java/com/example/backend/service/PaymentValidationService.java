@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Function;
 
-import com.example.backend.repository.InvoiceRepository;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.constant.enums.PaymentStatus;
@@ -34,6 +33,14 @@ public class PaymentValidationService {
 
         Invoice invoice = validateEntityExists(invoiceId, invoiceRepository::findById,
                 "error.invoice.not.found");
+
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            throw new BusinessException("error.invoice.already.paid");
+        }
+
+        if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
+            throw new BusinessException("error.invoice.cancelled");
+        }
 
         if (invoice.getStatus() != InvoiceStatus.PENDING) {
             throw new BusinessException("error.invoice.not.pending");
@@ -130,7 +137,7 @@ public class PaymentValidationService {
 
     /**
      * Generic method to validate entity existence
-     * 
+     *
      * @param id
      *            The entity ID to validate
      * @param findByIdFunction
@@ -148,7 +155,7 @@ public class PaymentValidationService {
 
     /**
      * Validate that invoice exists and return it
-     * 
+     *
      * @param invoiceId
      *            The invoice ID to validate
      * @return The found invoice
@@ -162,7 +169,7 @@ public class PaymentValidationService {
 
     /**
      * Validate that payment exists and return it
-     * 
+     *
      * @param paymentId
      *            The payment ID to validate
      * @return The found payment
