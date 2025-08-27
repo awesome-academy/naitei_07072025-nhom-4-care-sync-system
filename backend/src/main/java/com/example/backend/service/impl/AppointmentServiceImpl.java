@@ -20,6 +20,18 @@ import com.example.backend.entity.AppointmentSlot;
 import com.example.backend.entity.Patient;
 import com.example.backend.entity.User;
 import com.example.backend.entity.Doctor;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.backend.dto.AppointmentCreateRequest;
+import com.example.backend.dto.AppointmentCreateResponse;
+import com.example.backend.entity.Appointment;
+import com.example.backend.entity.AppointmentSlot;
+import com.example.backend.entity.Patient;
 import com.example.backend.entity.ids.AppointmentServiceId;
 import com.example.backend.event.AppointmentConfirmedEvent;
 import com.example.backend.event.AppointmentCreatedEvent;

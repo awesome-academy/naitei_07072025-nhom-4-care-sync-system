@@ -1,5 +1,6 @@
 package com.example.backend.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,4 +36,6 @@ public interface DoctorRepository
     List<Doctor> findBySpecialty(@Param("specialtyId") Long specialtyId);
 
     Optional<Doctor> findByUserId(Long userId);
+    List<Doctor> findBySpecialtyIdIn(Collection<Long> specialtyIds);
+
 }
