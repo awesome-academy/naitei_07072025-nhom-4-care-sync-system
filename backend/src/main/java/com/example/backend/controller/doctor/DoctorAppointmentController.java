@@ -54,4 +54,15 @@ public class DoctorAppointmentController {
                 LocaleContextHolder.getLocale());
         return ApiResponse.success(resp, message);
     }
+
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Update appointment status", description = "Doctor updates the status of an appointment (e.g., to COMPLETED)")
+    public ApiResponse<AppointmentSummaryDto> updateStatus(@PathVariable Long id,
+            @Valid @RequestBody AppointmentStatusUpdateRequest request) {
+        log.info("Updating status for appointment {}: {}", id, request.status());
+        var resp = appointmentService.updateStatus(id, request);
+        String message = messageSource.getMessage("success.operation", null,
+                LocaleContextHolder.getLocale());
+        return ApiResponse.success(resp, message);
+    }
 }

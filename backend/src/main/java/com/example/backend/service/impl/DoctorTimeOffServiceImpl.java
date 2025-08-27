@@ -65,4 +65,61 @@ public class DoctorTimeOffServiceImpl implements DoctorTimeOffService {
                 LocaleContextHolder.getLocale());
         return ApiResponse.success(null, message);
     }
+
+    @Override
+    public ApiResponse<String> updateTimeOff(Long id, DoctorTimeOffRequestDto request) {
+        log.info("Updating time off for id: {}", id);
+
+        DoctorTimeOff timeOff = doctorTimeOffRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("error.doctor.time.off.not.found", id));
+
+        LocalDateTime startDateTime = timeOffValidator.parseDateTime(request.startDatetime());
+        LocalDateTime endDateTime = timeOffValidator.parseDateTime(request.endDatetime());
+
+        timeOffValidator.validateTimeOffRequest(startDateTime, endDateTime);
+
+        Doctor doctor = doctorRepository.findById(request.doctorId()).orElseThrow(
+                () -> new ResourceNotFoundException("error.user.not.found", request.doctorId()));
+
+        if (doctorTimeOffRepository.existsOverlappingTimeOffExcludingId(request.doctorId(),
+                startDateTime, endDateTime, id)) {
+            throw new BusinessException("error.time.off.conflict");
+        }
+
+        timeOff.setDoctor(doctor);
+        timeOff.setStartDatetime(startDateTime);
+        timeOff.setEndDatetime(endDateTime);
+        timeOff.setReason(request.reason());
+
+        doctorTimeOffRepository.save(timeOff);
+
+        log.info("Time off updated successfully for id: {}", id);
+        String message = messageSource.getMessage("success.operation", null,
+                LocaleContextHolder.getLocale());
+        return ApiResponse.success(null, message);
+    }
+
+    @Override
+    public ApiResponse<String> deleteTimeOff(Long id) {
+        log.info("Deleting time off for id: {}", id);
+
+        DoctorTimeOff timeOff = doctorTimeOffRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("error.doctor.time.off.not.found", id));
+
+        if (timeOff.getStartDatetime().isBefore(LocalDateTime.now())) {
+            String errorMessage = messageSource.getMessage("error.timeoff.already.passed", null, // Không
+                                                                                                 // có
+                                                                                                 // tham
+                                                                                                 // số
+                    LocaleContextHolder.getLocale());
+            throw new BusinessException(errorMessage);
+        }
+
+        doctorTimeOffRepository.delete(timeOff);
+
+        log.info("Time off deleted successfully for id: {}", id);
+        String message = messageSource.getMessage("success.operation", null,
+                LocaleContextHolder.getLocale());
+        return ApiResponse.success(null, message);
+    }
 }

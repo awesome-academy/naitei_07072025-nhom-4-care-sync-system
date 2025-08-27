@@ -20,4 +20,13 @@ public interface DoctorTimeOffRepository extends JpaRepository<DoctorTimeOff, Lo
     boolean existsOverlappingTimeOff(@Param("doctorId") Long doctorId,
             @Param("startDatetime") LocalDateTime startDatetime,
             @Param("endDatetime") LocalDateTime endDatetime);
+
+    @Query("""
+            SELECT COUNT(dto) > 0 FROM DoctorTimeOff dto
+            WHERE dto.doctor.id = :doctorId AND dto.id <> :excludeId AND
+            (dto.startDatetime < :endDateTime AND dto.endDatetime > :startDateTime)
+            """)
+    boolean existsOverlappingTimeOffExcludingId(@Param("doctorId") Long doctorId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime, @Param("excludeId") Long excludeId);
 }
