@@ -1,9 +1,15 @@
 package com.example.backend.repository;
 
+import com.example.backend.constant.enums.AppointmentSlotStatus;
 import com.example.backend.entity.AppointmentSlot;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.example.backend.constant.enums.AppointmentSlotStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 import java.time.LocalDateTime;
 
@@ -45,6 +51,9 @@ public interface AppointmentSlotRepository extends JpaRepository<AppointmentSlot
             """)
     boolean existsOverlap(@Param("doctorId") Long doctorId, @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
+
+    List<AppointmentSlot> findByDoctorIdAndStartTimeBetweenAndStatus(Long doctorId,
+            LocalDateTime start, LocalDateTime end, AppointmentSlotStatus status);
 
     @Query("""
                 select (count(s) > 0) from AppointmentSlot s
