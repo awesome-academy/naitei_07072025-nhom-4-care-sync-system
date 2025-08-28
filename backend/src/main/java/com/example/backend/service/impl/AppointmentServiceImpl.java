@@ -226,7 +226,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         calendarSyncService.syncAppointmentToCalendar(saved);
 
         // TODO: publish AppointmentConfirmedEvent here (Patient Notifications task)
-        
+        publishAppointmentConfirmedEvent(saved, slot);
         // Notification out of current scope: do not publish confirmed event
 
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());
@@ -288,7 +288,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         calendarSyncService.syncAppointmentToCalendar(saved);
 
         // TODO: publish AppointmentRejectedEvent here (Patient Notifications task)
-
+        publishAppointmentRejectedEvent(saved, slot, request.reason());
         // Notification out of current scope: do not publish rejected event
 
         var apptServices = appointmentServiceRepository.findByAppointmentId(saved.getId());

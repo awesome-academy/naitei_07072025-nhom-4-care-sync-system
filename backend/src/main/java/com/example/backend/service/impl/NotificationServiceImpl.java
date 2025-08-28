@@ -4,6 +4,8 @@ import com.example.backend.constant.enums.NotificationStatus;
 import com.example.backend.constant.enums.NotificationType;
 import com.example.backend.entity.Notification;
 import com.example.backend.entity.User;
+import com.example.backend.event.AppointmentConfirmedEvent;
+import com.example.backend.event.AppointmentRejectedEvent;
 import com.example.backend.event.AppointmentCreatedEvent;
 import com.example.backend.event.DoctorNewAppointmentRequestEvent;
 import com.example.backend.exception.BusinessException;
@@ -44,6 +46,26 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final Map<Class<?>, HandlerConfig> registry = buildRegistry();
 
+    private Map<String, Object> buildAppointmentConfirmedVars(AppointmentConfirmedEvent e) {
+        return Map.of(
+                "appointmentId", e.appointmentId(),
+                "patientName",   e.patientName(),
+                "doctorName",    e.doctorName(),
+                "startTime",     e.startTime(),
+                "endTime",       e.endTime()
+        );
+    }
+
+    private Map<String, Object> buildAppointmentRejectedVars(AppointmentRejectedEvent e) {
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("appointmentId", e.appointmentId());
+        vars.put("patientName",   e.patientName());
+        vars.put("doctorName",    e.doctorName());
+        vars.put("startTime",     e.startTime());
+        vars.put("endTime",       e.endTime());
+        if (e.reason() != null) vars.put("reason", e.reason());
+        return vars;
+    }
     private Map<Class<?>, HandlerConfig> buildRegistry() {
         Map<Class<?>, HandlerConfig> map = new HashMap<>();
 
@@ -121,6 +143,38 @@ public class NotificationServiceImpl implements NotificationService {
                                                             .appointmentId()));
                             return vars;
                         }));
+
+        // Confirm → gửi mail cho patient
+        map.put(AppointmentConfirmedEvent.class, new HandlerConfig(
+                NotificationType.APPOINTMENT_CONFIRMED,
+                "notification.appointment.confirmed",
+                "email.subject.appointment.confirmed",
+                "email/appointment-confirmed",
+                e -> new Object[]{ ((AppointmentConfirmedEvent) e).appointmentId() }, // contentArgs
+                e -> ((AppointmentConfirmedEvent) e).patientEmail(),                  // recipient
+                e -> {
+                    if (e instanceof AppointmentConfirmedEvent ace) {
+                        return buildAppointmentConfirmedVars(ace);
+                    }
+                    return Map.of();
+                }
+        ));
+
+        // Reject → gửi mail cho patient
+        map.put(AppointmentRejectedEvent.class, new HandlerConfig(
+                NotificationType.APPOINTMENT_REJECTED,
+                "notification.appointment.rejected",
+                "email.subject.appointment.rejected",
+                "email/appointment-rejected",
+                e -> new Object[]{ ((AppointmentRejectedEvent) e).appointmentId() },
+                e -> ((AppointmentRejectedEvent) e).patientEmail(),
+                e -> {
+                    if (e instanceof AppointmentRejectedEvent are) {
+                        return buildAppointmentRejectedVars(are);
+                    }
+                    return Map.of();
+                }
+        ));
 
         return map;
     }
