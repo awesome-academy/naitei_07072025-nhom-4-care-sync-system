@@ -48,6 +48,7 @@ import com.example.backend.repository.ServiceRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.service.AppointmentService;
 import com.example.backend.service.CalendarSyncService;
+import com.example.backend.service.InvoicePaymentService;
 import com.example.backend.util.SecurityUtils;
 
 import java.time.LocalDate;
@@ -93,6 +94,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final ApplicationEventPublisher eventPublisher;
     private final InvoiceService invoiceService;
     private final CalendarSyncService calendarSyncService;
+    private final InvoicePaymentService invoicePaymentService;
 
     @Override
     @Transactional
@@ -273,8 +275,14 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointmentSlotRepository.freeSlotByAppointmentId(saved.getId());
 
-        // TODO: Implement invoice cancellation logic if needed
-        log.info("Appointment rejected: {}", saved.getId());
+        // Handle invoice cancellation when appointment is rejected
+        try {
+            invoicePaymentService.handleAppointmentRejection(saved.getId());
+            log.info("Handled invoice cancellation for rejected appointment: {}", saved.getId());
+        } catch (Exception e) {
+            log.error("Failed to handle invoice cancellation for rejected appointment: {}", saved.getId(), e);
+            // Không throw exception để không ảnh hưởng đến việc reject appointment
+        }
 
         // Sync to calendar when appointment is rejected
         calendarSyncService.syncAppointmentToCalendar(saved);

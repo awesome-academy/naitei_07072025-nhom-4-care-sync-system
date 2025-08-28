@@ -15,9 +15,9 @@ import com.example.backend.entity.Invoice;
 import com.example.backend.entity.Payment;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.repository.PaymentRepository;
+import com.example.backend.service.InvoicePaymentService;
 import com.example.backend.service.PaymentService;
 import com.example.backend.service.PaymentValidationService;
-import com.example.backend.repository.InvoiceRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +31,7 @@ public class VnpayPaymentService implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentValidationService validationService;
+    private final InvoicePaymentService invoicePaymentService;
 
     @Value("${payment.vnpay.tmn-code}")
     private String tmnCode;
@@ -101,6 +102,9 @@ public class VnpayPaymentService implements PaymentService {
 
         payment.setStatus(PaymentStatus.SUCCESSFUL);
         payment = paymentRepository.save(payment);
+
+        // Update invoice status and cancel other pending payments
+        invoicePaymentService.handleSuccessfulPayment(payment);
 
         return buildPaymentResponse(payment, null);
     }
