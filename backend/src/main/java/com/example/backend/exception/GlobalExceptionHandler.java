@@ -85,6 +85,15 @@ public class GlobalExceptionHandler {
                 toExternalCode(ex.getErrorCode()), localizedMessage, HttpStatus.CONFLICT.value()));
     }
 
+    @ExceptionHandler(ReviewAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleReviewAlreadyExistsException(
+            ReviewAlreadyExistsException ex) {
+        log.warn("Review already exists exception: Code - {}", ex.getErrorCode());
+        String localizedMessage = getMessage(ex.getErrorCode(), ex.getArgs());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(
+                toExternalCode(ex.getErrorCode()), localizedMessage, HttpStatus.CONFLICT.value()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationException(
             MethodArgumentNotValidException ex) {
